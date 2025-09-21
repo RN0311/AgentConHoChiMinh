@@ -10,7 +10,6 @@ import os
 import tempfile
 from enum import Enum
 
-# Ollama integration
 try:
     import ollama
     PATCH_OLLAMA_AVAILABLE = True
@@ -19,7 +18,6 @@ except ImportError:
     PATCH_OLLAMA_AVAILABLE = False
     print("❌ Ollama not installed for patch generation")
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -79,7 +77,6 @@ class VulnerableCodeDataset:
         
         samples = []
         
-        # 1. SQL Injection Samples
         samples.extend([
             VulnerableCodeSample(
                 id="sql_01",
@@ -115,8 +112,7 @@ class VulnerableCodeDataset:
                 file_path="users.py"
             )
         ])
-        
-        # 2. Cross-Site Scripting (XSS) Samples
+
         samples.extend([
             VulnerableCodeSample(
                 id="xss_01",
@@ -153,7 +149,6 @@ class VulnerableCodeDataset:
             )
         ])
         
-        # 3. Command Injection Samples  
         samples.extend([
             VulnerableCodeSample(
                 id="cmd_01",
@@ -179,7 +174,6 @@ class VulnerableCodeDataset:
             )
         ])
         
-        # 4. Path Traversal Samples
         samples.extend([
             VulnerableCodeSample(
                 id="path_01",
@@ -205,7 +199,6 @@ class VulnerableCodeDataset:
             )
         ])
         
-        # 5. Insecure Cryptography Samples
         samples.extend([
             VulnerableCodeSample(
                 id="crypto_01",
@@ -294,7 +287,6 @@ class PatchGenerator:
         else:
             logger.warning("Ollama not available, using fallback patch generation")
         
-        # Patch templates for fallback
         self.patch_templates = self._init_patch_templates()
     
     def _check_model_availability(self):
@@ -460,20 +452,16 @@ class PatchGenerator:
         """Parse Ollama patch response and create PatchResult"""
         
         try:
-            # Extract JSON using multiple patterns
             json_text = None
             
-            # Pattern 1: Look for JSON in code blocks
             json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
             if json_match:
                 json_text = json_match.group(1)
             else:
-                # Pattern 2: Look for JSON object
                 json_match = re.search(r'(\{[^}]*"patched_code"[^}]*\})', response_text, re.DOTALL)
                 if json_match:
                     json_text = json_match.group(1)
                 else:
-                    # Pattern 3: Look for any JSON-like structure
                     json_match = re.search(r'(\{.*?\})', response_text, re.DOTALL)
                     if json_match:
                         json_text = json_match.group(1)
@@ -482,7 +470,6 @@ class PatchGenerator:
                 logger.warning("No JSON found in patch response")
                 return self._generate_fallback_patch(sample)
             
-            # Parse JSON
             patch_data = json.loads(json_text)
             
             return PatchResult(
@@ -573,7 +560,6 @@ async def demo_patch_generation():
     print("🚀 STANDALONE PATCH GENERATION DEMO")
     print("=" * 60)
     
-    # Initialize patch generator with dataset
     patch_generator = PatchGenerator(model_name="deepseek-r1:latest")
     dataset = patch_generator.dataset
     
@@ -583,10 +569,10 @@ async def demo_patch_generation():
         samples = dataset.get_samples_by_type(vuln_type)
         print(f"  • {vuln_type.value}: {len(samples)} samples")
     
-    # Generate patches for all samples (or subset for demo)
+
     print(f"\n🔧 Generating patches...")
     
-    # Demo with first few samples of each type
+
     demo_samples = []
     for vuln_type in VulnerabilityType:
         type_samples = dataset.get_samples_by_type(vuln_type)[:2]  # First 2 of each type
@@ -604,7 +590,6 @@ async def demo_patch_generation():
         
         print(f"✅ Generated patch with confidence: {patch.confidence_score:.2f}")
     
-    # Display results
     print(f"\n🎉 PATCH GENERATION COMPLETE")
     print("=" * 60)
     
@@ -626,7 +611,6 @@ async def demo_patch_generation():
         print(f"Patched:  {patch.patched_code}")
         print(f"Explanation: {patch.explanation}")
         
-        # Validate patch
         validation = patch_generator.validate_patch(patch)
         print(f"Valid: {validation.is_valid}")
         if validation.security_improvements:
