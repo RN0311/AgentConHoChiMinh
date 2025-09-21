@@ -131,7 +131,7 @@ class ThreatAnalysisAgent:
         
     async def analyze_event(self, event: NetworkEvent) -> ThreatAnalysis:
         print("🤖 AI Agent analyzing threat...")
-        await asyncio.sleep(1.5)  # Give time for audience to see the analysis step
+        await asyncio.sleep(1.5)  
         
         if self.use_ollama:
             try:
@@ -306,13 +306,13 @@ class NetworkMonitoringSystem:
         self.processed_events = []
         
     async def process_events(self, events: List[NetworkEvent]):
-        print(f"\n🔍 Processing {len(events)} network events...")
+        print(f"\n Processing {len(events)} network events...")
         print("=" * 60)
         
         for i, event in enumerate(events, 1):
-            print(f"\n📊 Event {i}: {event.event_type.value}")
-            print(f"🌐 Source: {event.source_ip} -> Dest: {event.dest_ip}:{event.port}")
-            print(f"📝 Log: {event.raw_log}")
+            print(f"\n Event {i}: {event.event_type.value}")
+            print(f" Source: {event.source_ip} -> Dest: {event.dest_ip}:{event.port}")
+            print(f" Log: {event.raw_log}")
             
             await asyncio.sleep(1)  # Pause to let audience read the event
             
@@ -326,10 +326,10 @@ class NetworkMonitoringSystem:
                 ThreatLevel.CRITICAL: "🔴"
             }.get(analysis.threat_level, "⚪")
             
-            print(f"\n🔍 Threat Analysis:")
+            print(f"\n Threat Analysis:")
             print(f"  {threat_emoji} Level: {analysis.threat_level.name}")
-            print(f"  📈 Confidence: {analysis.confidence:.2f}")
-            print(f"  📋 Description: {analysis.description}")
+            print(f"  Confidence: {analysis.confidence:.2f}")
+            print(f"  Description: {analysis.description}")
             
             if analysis.threat_level.value >= ThreatLevel.MEDIUM.value:
                 responses = await self.response_agent.generate_response(analysis, event)
@@ -341,7 +341,7 @@ class NetworkMonitoringSystem:
             
             self.processed_events.append((event, analysis))
             
-            print(f"\n⏳ Processing next event...")
+            print(f"\nProcessing next event...")
             await asyncio.sleep(2)  # Longer pause between events for demo
         
         await self.generate_summary()
@@ -359,8 +359,8 @@ class NetworkMonitoringSystem:
         for event, analysis in self.processed_events:
             threat_counts[analysis.threat_level] += 1
         
-        print(f"📈 Total Events Processed: {total_events}")
-        print(f"📊 Threat Level Distribution:")
+        print(f"Total Events Processed: {total_events}")
+        print(f"Threat Level Distribution:")
         
         level_emojis = {
             ThreatLevel.LOW: "🟢",
@@ -404,7 +404,7 @@ async def main():
     
     await monitoring_system.process_events(events)
     
-    print(f"\n✅ Demo completed successfully!")
+    print(f"\n Analysis completed successfully!")
 
 if __name__ == "__main__":
     asyncio.run(main())
