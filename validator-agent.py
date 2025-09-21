@@ -408,7 +408,6 @@ class ValidationEngine:
         warnings = []
         ast_tree = None
         
-        # Python syntax validation
         if any(lang in patch_id.lower() for lang in ['py', 'python']):
             try:
                 ast_tree = ast.parse(code)
@@ -419,12 +418,9 @@ class ValidationEngine:
             except Exception as e:
                 warnings.append(f"Python validation warning: {e}")
         
-        # JavaScript syntax validation (basic)
         if any(lang in patch_id.lower() for lang in ['js', 'javascript']):
-            # Basic JavaScript validation patterns
             js_issues = []
             
-            # Check for common JS syntax issues
             if code.count('(') != code.count(')'):
                 js_issues.append("Mismatched parentheses")
             if code.count('{') != code.count('}'):
@@ -437,7 +433,6 @@ class ValidationEngine:
             else:
                 logger.info("✅ Basic JavaScript syntax validation passed")
         
-        # SQL syntax validation (basic)
         if 'sql' in patch_id.lower():
             sql_keywords = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP']
             if not any(keyword.lower() in code.lower() for keyword in sql_keywords):
@@ -459,44 +454,36 @@ class ValidationEngine:
         improvements = []
         remaining_issues = []
         
-        # Get relevant security tests
         security_tests = self.test_suite.get_tests_for_vulnerability(vuln_type)
         
-        # Pattern-based security analysis
         secure_patterns = self.secure_patterns.get(vuln_type, [])
         insecure_patterns = self.insecure_patterns.get(vuln_type, [])
         
-        # Check for secure patterns
         secure_matches = 0
         for pattern in secure_patterns:
             if re.search(pattern, patch.patched_code, re.IGNORECASE):
                 secure_matches += 1
                 improvements.append(f"Found secure pattern: {pattern}")
         
-        # Check for remaining insecure patterns  
         insecure_matches = 0
         for pattern in insecure_patterns:
             if re.search(pattern, patch.patched_code, re.IGNORECASE):
                 insecure_matches += 1
                 remaining_issues.append(f"Potentially insecure pattern: {pattern}")
         
-        # Run specific security tests
         for test in security_tests:
             test_result = await self._run_security_test(test, patch)
             test_results.append(test_result)
         
-        # Calculate security score
         total_patterns = len(secure_patterns) + len(insecure_patterns)
         if total_patterns > 0:
             security_score = (secure_matches + (len(insecure_patterns) - insecure_matches)) / total_patterns
             security_score = max(0.0, min(1.0, security_score))  # Clamp to [0,1]
         else:
-            security_score = 0.5  # Neutral score when no patterns available
-        
-        # Determine if vulnerability is fixed
+            security_score = 0.5 
         is_fixed = (
-            secure_matches > 0 and  # Has at least one secure pattern
-            insecure_matches == 0 and  # No insecure patterns remain
+            secure_matches > 0 and  
+            insecure_matches == 0 and  
             all(test.get('passed', False) for test in test_results if test.get('critical', False))
         )
         
@@ -577,7 +564,6 @@ class ValidationEngine:
             ]
             return any(re.search(pattern, code, re.IGNORECASE) for pattern in secure_cmd_patterns)
         
-        # Path Traversal tests
         if 'path' in vuln_id.lower():
             # Check for path sanitization
             secure_path_patterns = [
@@ -593,17 +579,14 @@ class ValidationEngine:
         """Test for presence/absence of specific patterns"""
         pattern_list = patterns.split(',')
         
-        # For security tests, absence of weak patterns is good
         return not any(pattern.strip() in code.lower() for pattern in pattern_list)
     
     def _test_algorithm_strength(self, weak_algorithms: str, code: str) -> bool:
         """Test cryptographic algorithm strength"""
         weak_algos = weak_algorithms.split(',')
         
-        # Check if weak algorithms are still present
         has_weak = any(algo.strip() in code.lower() for algo in weak_algos)
         
-        # Check for strong alternatives
         strong_patterns = ['bcrypt', 'scrypt', 'pbkdf2', 'sha256', 'sha512']
         has_strong = any(pattern in code.lower() for pattern in strong_patterns)
         
@@ -612,14 +595,12 @@ class ValidationEngine:
     def _test_timing_safety(self, code: str) -> bool:
         """Test for timing attack resistance"""
         
-        # Check for constant-time comparison functions
         timing_safe_patterns = [
             r'hmac\.compare_digest',
             r'secrets\.compare_digest', 
             r'constant_time_compare',
         ]
         
-        # Check for potentially vulnerable direct comparisons
         timing_vulnerable_patterns = [
             r'==.*password',
             r'password\s*==',
@@ -720,25 +701,20 @@ Be thorough and critical in your analysis."""
     def _calculate_confidence(self, syntax: SyntaxValidationResult, security: SecurityValidationResult, ai_analysis: Optional[str]) -> float:
         """Calculate overall confidence score"""
         
-        # Base confidence from syntax validation
         syntax_confidence = 1.0 if syntax.is_valid else 0.2
         
-        # Security confidence
         security_confidence = security.security_score
         
-        # AI confidence boost (if available)
         ai_confidence_boost = 0.0
         if ai_analysis and "CONFIDENCE:" in ai_analysis:
             try:
-                # Extract AI confidence from response
                 confidence_match = re.search(r'CONFIDENCE:\s*([\d.]+)', ai_analysis)
                 if confidence_match:
                     ai_confidence = float(confidence_match.group(1))
-                    ai_confidence_boost = ai_confidence * 0.2  # Weight AI input at 20%
+                    ai_confidence_boost = ai_confidence * 0.2 
             except:
                 pass
         
-        # Weighted combination
         base_confidence = (syntax_confidence * 0.3) + (security_confidence * 0.7)
         final_confidence = min(1.0, base_confidence + ai_confidence_boost)
         
@@ -765,7 +741,6 @@ Be thorough and critical in your analysis."""
         
         recommendations = []
         
-        # Syntax recommendations
         if syntax.errors:
             recommendations.append("❌ Fix syntax errors before deployment")
             recommendations.extend([f"  • {error}" for error in syntax.errors])
@@ -774,7 +749,6 @@ Be thorough and critical in your analysis."""
             recommendations.append("⚠️ Review syntax warnings")
             recommendations.extend([f"  • {warning}" for warning in syntax.warnings])
         
-        # Security recommendations
         if security.remaining_issues:
             recommendations.append("🛡️ Address remaining security issues")
             recommendations.extend([f"  • {issue}" for issue in security.remaining_issues])
@@ -785,14 +759,12 @@ Be thorough and critical in your analysis."""
         if security.security_score < 0.8:
             recommendations.append("📊 Consider additional security hardening")
         
-        # Best practice recommendations
         if patch.confidence_score < 0.8:
             recommendations.append("🔍 Manual code review recommended due to low confidence")
         
         if "TODO" in patch.patched_code or "FIXME" in patch.patched_code:
             recommendations.append("📝 Complete all TODO/FIXME comments")
         
-        # Performance recommendations
         performance_impact = self._assess_performance_impact(patch)
         if performance_impact in ["high", "medium"]:
             recommendations.append(f"⚡ Monitor performance impact ({performance_impact})")
@@ -809,7 +781,6 @@ class ValidationTestDataset:
         """Create sample patches for testing validation"""
         
         return [
-            # Good SQL Injection fix
             PatchResult(
                 vulnerability_id="sql_01",
                 original_code='query = "SELECT * FROM users WHERE username=\'" + username + "\' AND password=\'" + password + "\'"',
@@ -819,7 +790,6 @@ class ValidationTestDataset:
                 patch_type="parameterized_query"
             ),
             
-            # Partially fixed SQL injection (still vulnerable)
             PatchResult(
                 vulnerability_id="sql_02", 
                 original_code='cursor.execute(f"DELETE FROM posts WHERE id = {post_id} AND user_id = {user_id}")',
@@ -829,7 +799,6 @@ class ValidationTestDataset:
                 patch_type="string_concatenation"
             ),
             
-            # Good XSS fix
             PatchResult(
                 vulnerability_id="xss_01",
                 original_code='document.getElementById("content").innerHTML = userInput;',
@@ -839,7 +808,6 @@ class ValidationTestDataset:
                 patch_type="safe_dom_manipulation"
             ),
             
-            # Good command injection fix
             PatchResult(
                 vulnerability_id="cmd_01",
                 original_code='os.system("ping -c 4 " + user_ip)',
@@ -849,7 +817,6 @@ class ValidationTestDataset:
                 patch_type="subprocess_security"
             ),
             
-            # Bad crypto fix (still weak)
             PatchResult(
                 vulnerability_id="crypto_01",
                 original_code='password_hash = hashlib.md5(password.encode()).hexdigest()',
@@ -859,7 +826,6 @@ class ValidationTestDataset:
                 patch_type="hash_upgrade"
             ),
             
-            # Good crypto fix
             PatchResult(
                 vulnerability_id="crypto_02",
                 original_code='password_hash = hashlib.sha1(str(time.time()).encode()).hexdigest()',
@@ -879,11 +845,9 @@ async def demo_comprehensive_validation():
     await slow_print("🔍 COMPREHENSIVE PATCH VALIDATION DEMO")
     await slow_print("=" * 60)
 
-    # Initialize validation engine
     validation_engine = ValidationEngine(ai_model="deepseek-r1:latest")
     test_dataset = ValidationTestDataset()
-    
-    # Vulnerability type mapping for test patches
+
     vuln_type_mapping = {
         "sql_01": VulnerabilityType.SQL_INJECTION,
         "sql_02": VulnerabilityType.SQL_INJECTION,
@@ -895,7 +859,6 @@ async def demo_comprehensive_validation():
     
     validation_results = []
     
-    # Validate each test patch
     for i, patch in enumerate(test_dataset.get_all_patches(), 1):
         vuln_type = vuln_type_mapping.get(patch.vulnerability_id, VulnerabilityType.SQL_INJECTION)
         
@@ -906,7 +869,6 @@ async def demo_comprehensive_validation():
         await slow_print(f"Patched:  {patch.patched_code}")
         await slow_print(f"Expected Confidence: {patch.confidence_score}")
         
-        # Run comprehensive validation
         result = await validation_engine.validate_patch(patch, vuln_type)
         validation_results.append(result)
         
@@ -916,7 +878,7 @@ async def demo_comprehensive_validation():
         await slow_print(f"  Execution Safe: {result.execution_safe}")
         await slow_print(f"  Performance Impact: {result.performance_impact}")
         
-        # Syntax validation details
+
         await slow_print(f"\n  🔤 Syntax Validation:")
         await slow_print(f"    Valid: {result.syntax_validation.is_valid}")
         if result.syntax_validation.errors:
@@ -924,7 +886,7 @@ async def demo_comprehensive_validation():
         if result.syntax_validation.warnings:
             await slow_print(f"    Warnings: {result.syntax_validation.warnings}")
         
-        # Security validation details
+
         await slow_print(f"\n  🛡️ Security Validation:")
         await slow_print(f"    Fixed: {result.security_validation.is_fixed}")
         await slow_print(f"    Security Score: {result.security_validation.security_score:.2f}")
@@ -933,27 +895,24 @@ async def demo_comprehensive_validation():
         if result.security_validation.remaining_issues:
             await slow_print(f"    Remaining Issues: {len(result.security_validation.remaining_issues)}")
         
-        # Test results
+
         if result.security_validation.test_results:
             passed_tests = sum(1 for test in result.security_validation.test_results if test.get('passed'))
             total_tests = len(result.security_validation.test_results)
             await slow_print(f"    Security Tests: {passed_tests}/{total_tests} passed")
         
-        # Recommendations
+
         if result.recommendations:
             await slow_print(f"\n  💡 Recommendations:")
-            for rec in result.recommendations[:3]:  # Show first 3
+            for rec in result.recommendations[:3]: 
                 await slow_print(f"    {rec}")
         
-        # AI Analysis (if available)
         if result.ai_analysis:
-            # Extract key parts of AI analysis
             if "SECURITY_ASSESSMENT:" in result.ai_analysis:
                 assessment_match = re.search(r'SECURITY_ASSESSMENT:\s*(\w+)', result.ai_analysis)
                 if assessment_match:
                     await slow_print(f"    AI Assessment: {assessment_match.group(1)}")
     
-    # Generate summary statistics
     await slow_print(f"\n🎯 VALIDATION SUMMARY")
     await slow_print("=" * 60)
     
@@ -969,7 +928,7 @@ async def demo_comprehensive_validation():
     await slow_print(f"  ⚠️  Warning: {warning_patches}/{total_patches} ({warning_patches/total_patches*100:.1f}%)")
     await slow_print(f"  🔍 Manual Review: {manual_review_patches}/{total_patches} ({manual_review_patches/total_patches*100:.1f}%)")
     
-    # Confidence statistics
+
     confidence_scores = [r.confidence_score for r in validation_results]
     avg_confidence = sum(confidence_scores) / len(confidence_scores)
     high_confidence = len([c for c in confidence_scores if c >= 0.8])
@@ -979,7 +938,6 @@ async def demo_comprehensive_validation():
     await slow_print(f"  High Confidence (≥0.8): {high_confidence}/{total_patches}")
     await slow_print(f"  Confidence Range: {min(confidence_scores):.2f} - {max(confidence_scores):.2f}")
     
-    # Security effectiveness
     security_fixed = len([r for r in validation_results if r.security_validation.is_fixed])
     execution_safe = len([r for r in validation_results if r.execution_safe])
     
@@ -987,7 +945,7 @@ async def demo_comprehensive_validation():
     await slow_print(f"  Vulnerabilities Fixed: {security_fixed}/{total_patches} ({security_fixed/total_patches*100:.1f}%)")
     await slow_print(f"  Execution Safe: {execution_safe}/{total_patches} ({execution_safe/total_patches*100:.1f}%)")
     
-    # Performance impact analysis
+
     performance_impacts = [r.performance_impact for r in validation_results]
     impact_counts = {impact: performance_impacts.count(impact) for impact in set(performance_impacts)}
     
@@ -1008,7 +966,6 @@ def generate_validation_report(results: List[ComprehensiveValidationResult]) -> 
     report.append(f"Total Patches Validated: {len(results)}")
     report.append("")
     
-    # Executive Summary
     report.append("## EXECUTIVE SUMMARY")
     report.append("-" * 30)
     
@@ -1023,7 +980,6 @@ def generate_validation_report(results: List[ComprehensiveValidationResult]) -> 
     
     report.append("")
     
-    # Detailed Results
     report.append("## DETAILED VALIDATION RESULTS")
     report.append("-" * 35)
     
