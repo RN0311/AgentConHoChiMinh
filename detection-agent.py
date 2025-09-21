@@ -8,7 +8,6 @@ from typing import Dict, List, Optional
 import hashlib
 import re
 
-# Ollama integration
 try:
     import ollama
     OLLAMA_AVAILABLE = True
@@ -17,7 +16,6 @@ except ImportError:
     OLLAMA_AVAILABLE = False
     print("❌ Ollama not installed. Run: pip install ollama")
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -213,7 +211,6 @@ class VulnerabilityDetector:
         """Parse Ollama response — print raw for debugging, extract & return Vulnerability objects"""
         vulnerabilities = []
         
-        # 🖨️ DEBUG: Print raw response (as you requested)
         separator = "="*60
         print(f"\n{separator}")
         print("🤖 RAW LLM RESPONSE (FOR DEBUGGING)")
@@ -222,7 +219,6 @@ class VulnerabilityDetector:
         print(f"{separator}\n")
 
         try:
-            # 🔍 Extract JSON array using regex
             json_match = re.search(r'\[\s*\{.*\}\s*(,\s*\{.*\}\s*)*\]', response_text, re.DOTALL)
             if json_match:
                 json_text = json_match.group(0)
@@ -231,18 +227,15 @@ class VulnerabilityDetector:
                 logger.warning("No JSON array found in response even with regex.")
                 return vulnerabilities
 
-            # 🛠️ FIX: Escape unescaped double quotes inside JSON strings
             def escape_json_quotes(s):
                 result = []
                 in_string = False
                 i = 0
                 while i < len(s):
                     char = s[i]
-                    # Toggle string state on unescaped "
                     if char == '"' and (i == 0 or s[i-1] != '\\'):
                         in_string = not in_string
                         result.append(char)
-                    # If inside string and found unescaped ", escape it
                     elif char == '"' and in_string:
                         result.append('\\"')
                     else:
@@ -250,10 +243,8 @@ class VulnerabilityDetector:
                     i += 1
                 return ''.join(result)
 
-            # Apply quote escaping
             fixed_json = escape_json_quotes(json_text)
 
-            # 🧠 PARSE JSON
             vulns_data = json.loads(fixed_json)
             print(f"Parsed vulnerabilities: {vulns_data}")
 
@@ -261,7 +252,6 @@ class VulnerabilityDetector:
                 logger.warning("Parsed JSON is not a list")
                 return vulnerabilities
 
-            # 🧱 CONVERT to Vulnerability objects
             for item in vulns_data:
                 vuln = self._create_vulnerability_from_data(item, file_path)
                 if vuln:
@@ -281,7 +271,6 @@ class VulnerabilityDetector:
     def _create_vulnerability_from_data(self, vuln_data: dict, file_path: str) -> Optional[Vulnerability]:
         """Create Vulnerability object from parsed data"""
         try:
-            # Map vulnerability type
             type_mapping = {
                 "sql_injection": VulnerabilityType.SQL_INJECTION,
                 "xss": VulnerabilityType.XSS,
@@ -301,34 +290,31 @@ class VulnerabilityDetector:
                 logger.warning(f"Unknown vulnerability type: {vuln_type_str}")
                 return None
             
-            # --- Handle line_number gracefully ---
             raw_line_number = vuln_data.get('line_number', 0)
             if isinstance(raw_line_number, list):
                 if raw_line_number:
-                    line_number = int(raw_line_number[0]) # Take the first line number
+                    line_number = int(raw_line_number[0]) 
                 else:
                     line_number = 0
                 logger.warning(f"Line number received as list, using first element: {raw_line_number} -> {line_number}")
             else:
-                line_number = int(raw_line_number) # Ensure it's an int
+                line_number = int(raw_line_number) 
 
-            # --- Handle code_snippet gracefully ---
             raw_code_snippet = vuln_data.get('code_snippet', '')
             if isinstance(raw_code_snippet, list):
-                code_snippet = "\n".join(raw_code_snippet) # Join list elements with newline
+                code_snippet = "\n".join(raw_code_snippet) 
                 logger.warning(f"Code snippet received as list, joining them: {raw_code_snippet} -> '{code_snippet}'")
             else:
-                code_snippet = str(raw_code_snippet) # Ensure it's a string
+                code_snippet = str(raw_code_snippet) 
             
-            # Create vulnerability object
             vulnerability = Vulnerability(
                 id=self._generate_vuln_id(file_path, line_number), # Use processed line_number
                 type=vuln_type,
                 severity=self._assess_severity(vuln_type),
                 file_path=file_path,
-                line_number=line_number, # Use processed line_number
+                line_number=line_number, 
                 description=vuln_data.get('explanation', 'Vulnerability detected by Ollama'),
-                code_snippet=code_snippet, # Use processed code_snippet
+                code_snippet=code_snippet,
                 confidence_score=vuln_data.get('confidence', 0.8),
                 detected_at=datetime.now()
             )
@@ -336,7 +322,7 @@ class VulnerabilityDetector:
             return vulnerability
             
         except Exception as e:
-            logger.error(f"Error creating vulnerability object from data {vuln_data}: {e}") # Added vuln_data for context
+            logger.error(f"Error creating vulnerability object from data {vuln_data}: {e}")
             return None
     
     async def _fallback_analysis(self, file_path: str, code_content: str) -> List[Vulnerability]:
@@ -345,7 +331,6 @@ class VulnerabilityDetector:
         
         vulnerabilities = []
         lines = code_content.split('\n')
-        # Simple patterns for common vulnerabilities
         patterns = {
             VulnerabilityType.SQL_INJECTION: [r"SELECT.*\+.*", r"INSERT.*\+.*", r"UPDATE.*\+.*", r"DELETE.*\+.*"],
             VulnerabilityType.XSS: [r"innerHTML\s*=", r"document\.write", r"\.html\("],
@@ -353,7 +338,6 @@ class VulnerabilityDetector:
         }
         import re
         from datetime import datetime
-        # For each line, check each vulnerability type once
         for line_num, line in enumerate(lines, 1):
             for vuln_type, pattern_list in patterns.items():
                 for pattern in pattern_list:
@@ -369,7 +353,7 @@ class VulnerabilityDetector:
                             confidence_score=0.6,
                             detected_at=datetime.now()
                         ))
-                        break  # Stop after first pattern match for this type on this line
+                        break  
         return vulnerabilities
     
     def _generate_vuln_id(self, file_path: str, line_num: int) -> str:
@@ -420,10 +404,8 @@ def load_user_file(filename):
     print("🚀 VULNERABILITY DETECTION DEMO")
     print("=" * 50)
     
-    # Initialize detector
     detector = VulnerabilityDetector(model_name="deepseek-r1:latest") 
     
-    # Analyze the code
     vulnerabilities = await detector.analyze_code("vulnerable_app.py", vulnerable_code)
     
 
